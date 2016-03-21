@@ -183,7 +183,7 @@ if [ "${DOCKER_ENGINE_GOARCH}" == "arm" ]; then
 elif [ "${DOCKER_ENGINE_GOARCH}" == "windows" ]; then
 	: ${TIMEOUT:=8m}
 else
-	: ${TIMEOUT:=5m}
+	: ${TIMEOUT:=120m}
 fi
 
 LDFLAGS_STATIC_DOCKER="

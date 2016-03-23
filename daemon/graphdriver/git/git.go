@@ -8,6 +8,8 @@ import (
 	"os/exec"
 	"os"
 	"path"
+	"strings"
+	"bytes"
 )
 
 func init() {
@@ -15,9 +17,9 @@ func init() {
 }
 
 func Init(home string, options []string, uidMaps, gidMaps []idtools.IDMap) (graphdriver.Driver, error) {
-        if err := os.MkdirAll(home, 0700); err != nil {
-                return nil, err
-        }
+	if err := os.MkdirAll(home, 0700); err != nil {
+		return nil, err
+	}
 
 	var innerDriverStr string
 
@@ -53,7 +55,41 @@ func (d *Driver) ApplyDiff(id, parent string, diff archive.Reader) (size int64, 
 
 // TODO Use git logic insead of inner driver
 func (d *Driver) Changes(id, parent string) ([]archive.Change, error) {
-	return d.innerDriver.Changes(id, parent)
+	// Inner driver (AUFS)
+	changes, err := d.innerDriver.Changes(id, parent)
+	// GIT
+	commits_arr := []string{ parent,"..", id}
+	commits := strings.Join(commits_arr,"")
+	output, err := exec.Command("git", "diff", "--name-status", commits).CombinedOutput()
+	if err != nil {
+		logrus.Error("Error trying to take diff from GIT repository: %s (%s)", err, output)
+		return nil, err
+	}
+	// convert output []byte to output_s string
+	n := bytes.IndexByte(output, 0) // length
+	output_s := string(output[:n]) 
+	// output_array - output of "git diff" split by lines
+	output_array := strings.Split(output_s,"\n")
+	// Loop through lines
+	var change archive.Change
+	for _, line := range output_array {
+		var change_kind string			
+		// Split line by space. First element - modification, second - relative path
+		line_split := strings.Split(line," ")
+		change_kind = line_split[0]
+		change.Path = line_split[1]
+		// Set change.kind to int depending on change_kind string (letter)
+		switch change_kind {
+		case "M":
+			change.Kind = 0
+		case "A":
+			change.Kind = 1
+		case "D":
+			change.Kind = 2
+		}
+		changes = append(changes, change)
+	}
+	return changes, err
 }
 
 // TODO Use git logic insead of inner driver

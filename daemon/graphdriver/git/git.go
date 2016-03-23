@@ -2,7 +2,9 @@ package git
 
 import (
 	"github.com/docker/docker/daemon/graphdriver"
-	"github.com/docker/docker/pkg/log"
+	"github.com/docker/docker/pkg/idtools"
+	"github.com/docker/docker/pkg/archive"
+	"github.com/Sirupsen/logrus"
 	"os/exec"
 	"os"
 	"path"
@@ -12,7 +14,7 @@ func init() {
 	graphdriver.Register("git", Init)
 }
 
-func Init(home string, options []string) (graphdriver.Driver, error) {
+func Init(home string, options []string, uidMaps, gidMaps []idtools.IDMap) (graphdriver.Driver, error) {
         if err := os.MkdirAll(home, 0700); err != nil {
                 return nil, err
         }
@@ -25,7 +27,7 @@ func Init(home string, options []string) (graphdriver.Driver, error) {
 		innerDriverStr = "aufs"
 	}
 
-	innerDriver, err := graphdriver.GetDriver(innerDriverStr, home, options)
+	innerDriver, err := graphdriver.GetDriver(innerDriverStr, home, options, uidMaps, gidMaps)
 	if err != nil {
 		return nil, err
 	}
@@ -43,6 +45,32 @@ type Driver struct {
 	innerDriver graphdriver.Driver
 }
 
+
+// TODO Use git logic insead of inner driver
+func (d *Driver) ApplyDiff(id, parent string, diff archive.Reader) (size int64, err error) {
+	return d.innerDriver.ApplyDiff(id, parent, diff)
+}
+
+// TODO Use git logic insead of inner driver
+func (d *Driver) Changes(id, parent string) ([]archive.Change, error) {
+	return d.innerDriver.Changes(id, parent)
+}
+
+// TODO Use git logic insead of inner driver
+func (d *Driver) Diff(id, parent string) (archive.Archive, error) {
+	return d.innerDriver.Diff(id,parent)
+}
+
+// TODO Use git logic insead of inner driver
+func (d *Driver) DiffSize(id, parent string) (size int64, err error) {
+	return d.innerDriver.DiffSize(id, parent)
+}
+
+// TODO Use git logic insead of inner driver
+func (d *Driver) GetMetadata(id string) (map[string]string, error) {
+	return d.innerDriver.GetMetadata(id)
+}
+
 func (d *Driver) String() string {
 	return "git"
 }
@@ -55,8 +83,10 @@ func (d *Driver) Cleanup() error {
 	return d.innerDriver.Cleanup()
 }
 
-func (d *Driver) Create(id, parent string) error {
-	if err := d.innerDriver.Create(id, parent); err != nil {
+
+
+func (d *Driver) Create(id, parent string, mountLabel string) error {
+	if err := d.innerDriver.Create(id, parent, mountLabel); err != nil {
 		return err
 	}
 	dirStr, err := d.innerDriver.Get(id, "")
@@ -66,7 +96,7 @@ func (d *Driver) Create(id, parent string) error {
 	defer d.innerDriver.Put(id)
 
 	if output, err := exec.Command("git", "init", dirStr).CombinedOutput(); err != nil {
-		log.Errorf("Error trying to init GIT repository: %s (%s)", err, output)
+		logrus.Error("Error trying to init GIT repository: %s (%s)", err, output)
 		return nil
 	}
 
@@ -74,7 +104,8 @@ func (d *Driver) Create(id, parent string) error {
 }
 
 func (d *Driver) CreateAndMerge(id, parent1, parent2 string) error {
-	if err := d.Create(id, parent1); err != nil {
+	// TODO Use 3rd argument of d.Create (mountLabel) with meaning
+	if err := d.Create(id, parent1, parent1); err != nil {
 		return err
 	}
 	dirStr, err := d.innerDriver.Get(id, "")
@@ -91,18 +122,18 @@ func (d *Driver) CreateAndMerge(id, parent1, parent2 string) error {
 
 	cwd, err := os.Getwd()
 	if err != nil {
-		log.Errorf("Error trying to get the current directory: (%s)", err)
+		logrus.Error("Error trying to get the current directory: (%s)", err)
 		return err
 	}
 	defer os.Chdir(cwd)
 
 	if err := os.Chdir(dirStr); err != nil {
-		log.Errorf("Error trying to change the current directory to %s (%s)", dirStr, err)
+		logrus.Error("Error trying to change the current directory to %s (%s)", dirStr, err)
 		return err
 	}
 
 	if output, err := exec.Command("git", "pull", parent2dirStr).CombinedOutput(); err != nil {
-		log.Errorf("Error trying to pull GIT repository: %s (%s)", err, output)
+		logrus.Error("Error trying to pull GIT repository: %s (%s)", err, output)
 		return err
 	}
 
@@ -121,46 +152,47 @@ func (d *Driver) Get(id, mountLabel string) (string, error) {
 	return path.Join(dirStr, "git-repo"), nil
 }
 
-func (d *Driver) Put(id string) {
+func (d *Driver) Put(id string) error {
 	dirStr, err := d.innerDriver.Get(id, "")
 	if err != nil {
-		log.Errorf("Error trying to Get the directory: %s (%s)", dirStr, err)
-		return
+		logrus.Error("Error trying to Get the directory: %s (%s)", dirStr, err)
+		return err
 	}
 	defer d.innerDriver.Put(id)
 	defer d.innerDriver.Put(id) // Need twice!
 
 	cwd, err := os.Getwd()
 	if err != nil {
-		log.Errorf("Error trying to get the current directory: (%s)", err)
-		return
+		logrus.Error("Error trying to get the current directory: (%s)", err)
+		return err
 	}
 	defer os.Chdir(cwd)
 
 	if err := os.Chdir(dirStr); err != nil {
-		log.Errorf("Error trying to change the current directory to %s (%s)", dirStr, err)
-		return
+		logrus.Error("Error trying to change the current directory to %s (%s)", dirStr, err)
+		return err
 	}
 
 	if output, err := exec.Command("git", "add", "-A").CombinedOutput(); err != nil {
-		log.Errorf("Error trying to add files to GIT repository: %s (%s)", err, output)
-		return
+		logrus.Error("Error trying to add files to GIT repository: %s (%s)", err, output)
+		return err
 	}
 
 	if output, err := exec.Command("git", "config", "user.email", "docker@example.com").CombinedOutput(); err != nil {
-		log.Errorf("Error trying to configure user.email on GIT repository: %s (%s)", err, output)
-		return
+		logrus.Error("Error trying to configure user.email on GIT repository: %s (%s)", err, output)
+		return err
 	}
 
 	if output, err := exec.Command("git", "config", "user.name", "Docker").CombinedOutput(); err != nil {
-		log.Errorf("Error trying to configure user.name on GIT repository: %s (%s)", err, output)
-		return
+		logrus.Error("Error trying to configure user.name on GIT repository: %s (%s)", err, output)
+		return err
 	}
 
 	if output, err := exec.Command("git", "commit", "-a", "-m", "Commit by Docker: " + id).CombinedOutput(); err != nil {
-		log.Errorf("Error trying to commit GIT repository: %s (%s)", err, output)
-		return
+		logrus.Error("Error trying to commit GIT repository: %s (%s)", err, output)
+		return err
 	}
+	return nil
 }
 
 func (d *Driver) Exists(id string) bool {

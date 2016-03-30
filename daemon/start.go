@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"net/http"
 	"runtime"
+	"runtime/debug"
 	"strings"
 	"syscall"
 
@@ -139,7 +140,7 @@ func (daemon *Daemon) containerStart(container *container.Container) (err error)
 			strings.Contains(err.Error(), "no such file or directory") ||
 			strings.Contains(err.Error(), "system cannot find the file specified") {
 			container.ExitCode = 127
-			err = fmt.Errorf("Container command '%s' not found or does not exist", container.Path)
+			err = fmt.Errorf("Container command '%s' not found or does not exist. / %s", container.Path, err.Error())
 		}
 		// set to 126 for container cmd can't be invoked errors
 		if strings.Contains(err.Error(), syscall.EACCES.Error()) {

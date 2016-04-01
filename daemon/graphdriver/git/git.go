@@ -5,6 +5,8 @@ import (
 	"github.com/Sirupsen/logrus"
 	"github.com/docker/docker/daemon/graphdriver"
 	"github.com/docker/docker/pkg/archive"
+	"github.com/docker/docker/pkg/chrootarchive"
+	"github.com/docker/docker/pkg/directory"
 	"github.com/docker/docker/pkg/idtools"
 	"os"
 	"os/exec"
@@ -12,7 +14,7 @@ import (
 	"strings"
 )
 
-const fsroot string = "."
+const fsroot string = "git-fsroot"
 
 func init() {
 	logrus.Debugf("Executing init")
@@ -41,20 +43,44 @@ func Init(home string, options []string, uidMaps, gidMaps []idtools.IDMap) (grap
 	d := &Driver{
 		home:        home,
 		innerDriver: innerDriver,
+		uidMaps:     uidMaps,
+		gidMaps:     gidMaps,
 	}
 
 	return d, nil
 }
 
+// We want to change AUFS-specific functions of graphDriver, so we have to
+// implement the whole set of AUFS features required for the functions we need.
+// Here we added uid and gid mappings used in AUFS.
 type Driver struct {
 	home        string
 	innerDriver graphdriver.Driver
+	uidMaps     []idtools.IDMap
+	gidMaps     []idtools.IDMap
 }
 
-// TODO Use git logic insead of inner driver
+func (d *Driver) rootPath() string {
+	return d.home
+}
+
+// Use git-fsroot for extracting chaged files from archive diff
+func (d *Driver) applyDiff(id string, diff archive.Reader) error {
+	logrus.Debugf("(AUFS) Applying diff to %s", d.rootPath())
+	return chrootarchive.UntarUncompressed(diff, path.Join(d.rootPath(), "diff", id, fsroot), &archive.TarOptions{
+		UIDMaps: d.uidMaps,
+		GIDMaps: d.gidMaps,
+	})
+}
+
+// Apply diff to fsroot directory
 func (d *Driver) ApplyDiff(id, parent string, diff archive.Reader) (size int64, err error) {
 	logrus.Debugf("Executing ApplyDiff with %s, %s", id, parent)
-	return d.innerDriver.ApplyDiff(id, parent, diff)
+	// return d.innerDriver.ApplyDiff(id, parent, diff)
+	if err = d.applyDiff(id, diff); err != nil {
+		return
+	}
+	return d.DiffSize(id, parent)
 }
 
 // TODO Use git logic insead of inner driver
@@ -103,10 +129,10 @@ func (d *Driver) Diff(id, parent string) (archive.Archive, error) {
 	return d.innerDriver.Diff(id, parent)
 }
 
-// TODO Use git logic insead of inner driver
+// Use fsroot directory
 func (d *Driver) DiffSize(id, parent string) (size int64, err error) {
 	logrus.Debugf("Executing DiffSize with %s, %s", id, parent)
-	return d.innerDriver.DiffSize(id, parent)
+	return directory.Size(path.Join(d.rootPath(), "diff", id, fsroot))
 }
 
 // TODO Use git logic insead of inner driver
@@ -129,16 +155,33 @@ func (d *Driver) Cleanup() error {
 	return d.innerDriver.Cleanup()
 }
 
+// Use same logic as in aufs.Get(),
+// but do not use reference count.
+// Use it instead of aufs.Get() when do not need to create AUFS mount.
+func (d *Driver) GetAUFSpath(id, string) (string, error) {
+	parents, err := d.getParentLayerPaths(id)
+	if err != nil && !os.IsNotExist(err) {
+		return "", err
+	}
+
+	// If a dir does not have a parent ( no layers )do not try to mount
+	// just return the diff path to the data
+	path := path.Join(d.rootPath(), "diff", id)
+	if len(parents) > 0 {
+		path = path.Join(d.rootPath(), "mnt", id)
+	}
+	return path, nil
+}
+
 func (d *Driver) Create(id, parent string, mountLabel string) error {
 	logrus.Debugf("Executing Create with %s, %s, %s", id, parent, mountLabel)
 	if err := d.innerDriver.Create(id, parent, mountLabel); err != nil {
 		return err
 	}
-	dirStr, err := d.innerDriver.Get(id, "")
+	dirStr, err := d.GetAUFSpath(id, "")
 	if err != nil {
 		return err
 	}
-	defer d.innerDriver.Put(id)
 
 	if output, err := exec.Command("git", "init", dirStr).CombinedOutput(); err != nil {
 		logrus.Errorf("Error trying to init GIT repository: %s (%s)", err, output)
@@ -150,8 +193,7 @@ func (d *Driver) Create(id, parent string, mountLabel string) error {
 
 func (d *Driver) CreateAndMerge(id, parent1, parent2 string) error {
 	logrus.Debugf("Executing CreateAndMerge with %s, %s, %s", id, parent1, parent2)
-	// TODO Use 3rd argument of d.Create (mountLabel) with meaning
-	if err := d.Create(id, parent1, parent1); err != nil {
+	if err := d.Create(id, parent1, ""); err != nil {
 		return err
 	}
 	dirStr, err := d.innerDriver.Get(id, "")
@@ -198,18 +240,20 @@ func (d *Driver) Get(id, mountLabel string) (string, error) {
 		return dirStr, err
 	}
 	//return dirStr, nil
+	logrus.Debug("Using %s in return value from Get.", fsroot)
 	return path.Join(dirStr, fsroot), nil
 }
 
 func (d *Driver) Put(id string) error {
 	logrus.Debugf("Executing Put with %s", id)
-	dirStr, err := d.innerDriver.Get(id, "")
+	dirStr, err := d.GetAUFSpath(id, "")
 	if err != nil {
 		logrus.Errorf("Error trying to Get the directory: %s (%s)", dirStr, err)
 		return err
 	}
+	// DO NOT use fsroot path for creating git commit
+	// X dirStr = path.Join(dirStr, fsroot) - Do not do it. Git repository will be created in this directory
 	defer d.innerDriver.Put(id)
-	defer d.innerDriver.Put(id) // Need twice!
 
 	cwd, err := os.Getwd()
 	if err != nil {

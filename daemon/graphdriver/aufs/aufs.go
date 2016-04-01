@@ -207,7 +207,6 @@ func (a *Driver) Create(id, parent, mountLabel string, storageOpt map[string]str
 	if len(storageOpt) != 0 {
 		return fmt.Errorf("--storage-opt is not supported for aufs")
 	}
-
 	if err := a.createDirsFor(id); err != nil {
 		return err
 	}

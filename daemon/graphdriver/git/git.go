@@ -1,9 +1,11 @@
 package git
 
 import (
+	"bufio"
 	"bytes"
 	"github.com/Sirupsen/logrus"
 	"github.com/docker/docker/daemon/graphdriver"
+	//"github.com/docker/docker/daemon/graphdriver/aufs"
 	"github.com/docker/docker/pkg/archive"
 	"github.com/docker/docker/pkg/chrootarchive"
 	"github.com/docker/docker/pkg/directory"
@@ -36,6 +38,7 @@ func Init(home string, options []string, uidMaps, gidMaps []idtools.IDMap) (grap
 	}
 
 	innerDriver, err := graphdriver.GetDriver(innerDriverStr, home, options, uidMaps, gidMaps)
+	//driver, err := aufs.Init(home, options, uidMaps, gidMaps)
 	if err != nil {
 		return nil, err
 	}
@@ -158,7 +161,7 @@ func (d *Driver) Cleanup() error {
 // Use same logic as in aufs.Get(),
 // but do not use reference count.
 // Use it instead of aufs.Get() when do not need to create AUFS mount.
-func (d *Driver) GetAUFSpath(id, string) (string, error) {
+func (d *Driver) GetAUFSpath(id string) (string, error) {
 	parents, err := d.getParentLayerPaths(id)
 	if err != nil && !os.IsNotExist(err) {
 		return "", err
@@ -166,19 +169,58 @@ func (d *Driver) GetAUFSpath(id, string) (string, error) {
 
 	// If a dir does not have a parent ( no layers )do not try to mount
 	// just return the diff path to the data
-	path := path.Join(d.rootPath(), "diff", id)
+	layer_path := path.Join(d.rootPath(), "diff", id)
 	if len(parents) > 0 {
-		path = path.Join(d.rootPath(), "mnt", id)
+		layer_path = path.Join(d.rootPath(), "mnt", id)
 	}
-	return path, nil
+	return layer_path, nil
 }
 
-func (d *Driver) Create(id, parent string, mountLabel string) error {
+func (d *Driver) getParentLayerPaths(id string) ([]string, error) {
+	parentIds, err := getParentIds(d.rootPath(), id)
+	if err != nil {
+		return nil, err
+	}
+	layers := make([]string, len(parentIds))
+
+	// Get the diff paths for all the parent ids
+	for i, p := range parentIds {
+		layers[i] = path.Join(d.rootPath(), "diff", p)
+	}
+	return layers, nil
+}
+
+// Read the layers file for the current id and return all the
+// layers represented by new lines in the file
+//
+// If there are no lines in the file then the id has no parent
+// and an empty slice is returned.
+//
+// Function copied from aufs/dirs.go
+func getParentIds(root, id string) ([]string, error) {
+	f, err := os.Open(path.Join(root, "layers", id))
+	if err != nil {
+		return nil, err
+	}
+	defer f.Close()
+
+	out := []string{}
+	s := bufio.NewScanner(f)
+
+	for s.Scan() {
+		if t := s.Text(); t != "" {
+			out = append(out, s.Text())
+		}
+	}
+	return out, s.Err()
+}
+
+func (d *Driver) Create(id, parent string, mountLabel string, storageOpt map[string]string) error {
 	logrus.Debugf("Executing Create with %s, %s, %s", id, parent, mountLabel)
-	if err := d.innerDriver.Create(id, parent, mountLabel); err != nil {
+	if err := d.innerDriver.Create(id, parent, mountLabel, storageOpt); err != nil {
 		return err
 	}
-	dirStr, err := d.GetAUFSpath(id, "")
+	dirStr, err := d.GetAUFSpath(id)
 	if err != nil {
 		return err
 	}
@@ -193,7 +235,7 @@ func (d *Driver) Create(id, parent string, mountLabel string) error {
 
 func (d *Driver) CreateAndMerge(id, parent1, parent2 string) error {
 	logrus.Debugf("Executing CreateAndMerge with %s, %s, %s", id, parent1, parent2)
-	if err := d.Create(id, parent1, ""); err != nil {
+	if err := d.Create(id, parent1, "", nil); err != nil {
 		return err
 	}
 	dirStr, err := d.innerDriver.Get(id, "")
@@ -246,7 +288,7 @@ func (d *Driver) Get(id, mountLabel string) (string, error) {
 
 func (d *Driver) Put(id string) error {
 	logrus.Debugf("Executing Put with %s", id)
-	dirStr, err := d.GetAUFSpath(id, "")
+	dirStr, err := d.GetAUFSpath(id)
 	if err != nil {
 		logrus.Errorf("Error trying to Get the directory: %s (%s)", dirStr, err)
 		return err

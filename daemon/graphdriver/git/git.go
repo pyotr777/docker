@@ -16,7 +16,7 @@ import (
 	"strings"
 )
 
-const fsroot string = "git-fsroot"
+const gitDir string = "git"
 
 func init() {
 	logrus.Debugf("Executing init")
@@ -67,34 +67,65 @@ func (d *Driver) rootPath() string {
 	return d.home
 }
 
-// Use git-fsroot for extracting chaged files from archive diff
-func (d *Driver) applyDiff(id string, diff archive.Reader) error {
-	logrus.Debugf("(AUFS) Applying diff to %s", d.rootPath())
-	return chrootarchive.UntarUncompressed(diff, path.Join(d.rootPath(), "diff", id, fsroot), &archive.TarOptions{
-		UIDMaps: d.uidMaps,
-		GIDMaps: d.gidMaps,
-	})
-}
-
-// Apply diff to fsroot directory
-func (d *Driver) ApplyDiff(id, parent string, diff archive.Reader) (size int64, err error) {
-	logrus.Debugf("Executing ApplyDiff with %s, %s", id, parent)
-	// return d.innerDriver.ApplyDiff(id, parent, diff)
-	if err = d.applyDiff(id, diff); err != nil {
-		return
+// Return absolute path to git repository.
+// Creaete if the directory doesn't exist.
+func (d *Driver) gitPath() (string, error) {
+	git_path, err := path.Join(d.rootPath(), gitDir)
+	if err != nil {
+		logrus.Errorf("Cannot join %s and %s", d.rootPath(), gitDir)
+		return nil, err
 	}
-	return d.DiffSize(id, parent)
+	_, err = os.Stat(git_path)
+	if err != nil {
+		if os.IsNotExist(err) { // Directory doesn't exist. Create.
+			if err := os.MkdirAll(git_path, 0755); err != nil {
+				logrus.Errorf("Cannot create directory %s", git_path)
+				return nil, err
+			}
+			logrus.Debugf("Directory created: %s", git_path)
+		} else {
+			return nil, err
+		}
+	}
+	return git_path, nil
 }
 
-// TODO Use git logic insead of inner driver
+// Return string with git-dir and work-tree options for calling git
+func (d *Driver) getGitPaths(id string) (string, error) {
+	work_dir, err := d.getAUFSpath(id)
+	if err != nil {
+		logrus.Errorf("Cannot get AUFS dirs for %s", id)
+		return nil, err
+	}
+	git_path, err = d.gitPath()
+	if err != nil {
+		logrus.Errorf("Cannot get git dirs for %s", id)
+		return nil, err
+	}
+	return strings.Join([]string{"--git-dir ", git_path, "--work-tree", work_dir}, ""), nil
+}
+
+// Call AUFS to apply diff
+func (d *Driver) ApplyDiff(id, parent string, diff archive.Reader) (size int64, err error) {
+	logrus.Debugf("(git) Executing ApplyDiff with %s, %s", id, parent)
+	return d.innerDriver.ApplyDiff(id, parent, diff)
+}
+
+// Use git logic for obtaining changes.
+// Can use AUFS also.
 func (d *Driver) Changes(id, parent string) ([]archive.Change, error) {
-	logrus.Debugf("Executing Changes with %s, %s", id, parent)
-	// Inner driver (AUFS)
+	logrus.Debugf("(git) Executing Changes with %s, %s", id, parent)
+	// Inner driver (AUFS) changes
 	changes, err := d.innerDriver.Changes(id, parent)
-	// GIT
+	// Get changes from git
 	commits_arr := []string{parent, "..", id}
 	commits := strings.Join(commits_arr, "")
-	output, err := exec.Command("git", "diff", "--name-status", commits).CombinedOutput()
+	git_paths, err := d.getGitPaths()
+	if err != nil {
+		return nil, err
+	}
+	logrus.Debugf("(git) Execute command: git %s diff --name-status %s", git_paths, commits)
+	output, err := exec.Command("git", git_paths, "diff", "--name-status", commits).CombinedOutput()
 	if err != nil {
 		logrus.Errorf("Error trying to take diff from GIT repository: %s (%s)", err, output)
 		return nil, err
@@ -104,8 +135,10 @@ func (d *Driver) Changes(id, parent string) ([]archive.Change, error) {
 	output_s := string(output[:n])
 	// output_array - output of "git diff" split by lines
 	output_array := strings.Split(output_s, "\n")
+
 	// Loop through lines
 	var change archive.Change
+	var git_changes []archive.Change
 	for _, line := range output_array {
 		var change_kind string
 		// Split line by space. First element - modification, second - relative path
@@ -121,9 +154,21 @@ func (d *Driver) Changes(id, parent string) ([]archive.Change, error) {
 		case "D":
 			change.Kind = 2
 		}
-		changes = append(changes, change)
+		git_changes = append(git_changes, change)
 	}
-	return changes, err
+
+	// Compare output from AUFS and git
+	logrus.Debug("AUFS changes:")
+	for _, change := range changes {
+		logrus.Debug(change)
+	}
+	logrus.Debug("")
+	logrus.Debug("GIT changes:")
+	for _, change := range git_changes {
+		logrus.Debug(change)
+	}
+
+	return git_changes, err
 }
 
 // TODO Use git logic insead of inner driver
@@ -132,10 +177,10 @@ func (d *Driver) Diff(id, parent string) (archive.Archive, error) {
 	return d.innerDriver.Diff(id, parent)
 }
 
-// Use fsroot directory
+// Use gitDir directory
 func (d *Driver) DiffSize(id, parent string) (size int64, err error) {
-	logrus.Debugf("Executing DiffSize with %s, %s", id, parent)
-	return directory.Size(path.Join(d.rootPath(), "diff", id, fsroot))
+	logrus.Debugf("(git) Executing DiffSize with %s, %s", id, parent)
+	return d.innerDriver.DiffSize(id, parent)
 }
 
 // TODO Use git logic insead of inner driver
@@ -161,7 +206,7 @@ func (d *Driver) Cleanup() error {
 // Use same logic as in aufs.Get(),
 // but do not use reference count.
 // Use it instead of aufs.Get() when do not need to create AUFS mount.
-func (d *Driver) GetAUFSpath(id string) (string, error) {
+func (d *Driver) getAUFSpath(id string) (string, error) {
 	parents, err := d.getParentLayerPaths(id)
 	if err != nil && !os.IsNotExist(err) {
 		return "", err
@@ -215,19 +260,55 @@ func getParentIds(root, id string) ([]string, error) {
 	return out, s.Err()
 }
 
+// Created directories for AUFS and git
 func (d *Driver) Create(id, parent string, mountLabel string, storageOpt map[string]string) error {
 	logrus.Debugf("Executing Create with %s, %s, %s", id, parent, mountLabel)
 	if err := d.innerDriver.Create(id, parent, mountLabel, storageOpt); err != nil {
 		return err
 	}
-	dirStr, err := d.GetAUFSpath(id)
+	dirStr, err := d.getAUFSpath(id)
 	if err != nil {
 		return err
 	}
 
-	if output, err := exec.Command("git", "init", dirStr).CombinedOutput(); err != nil {
+	cwd, err := os.Getwd()
+	if err != nil {
+		logrus.Errorf("Error trying to get the current directory: (%s)", err)
+		return err
+	}
+	defer os.Chdir(cwd)
+
+	if err := os.Chdir(d.rootPath()); err != nil {
+		logrus.Errorf("Error trying to change to %s (%s)", d.rootPath(), err)
+		return err
+	}
+
+	if output, err := exec.Command("git", git_options, "add", "-A").CombinedOutput(); err != nil {
+		logrus.Errorf("Error trying to add files to GIT repository: %s (%s)", err, output)
+		return err
+	}
+	// Init git repository in rootPath/gitDir
+	git_path := d.gitPath()
+	if err != nil {
+		return err
+	}
+	logrus.Debugf("Initialise GIT in %s", git_path)
+	git_options, err := d.getGitPaths(id)
+	if err != nil {
+		return err
+	}
+	if output, err := exec.Command("git", git_options, "init").CombinedOutput(); err != nil {
 		logrus.Errorf("Error trying to init GIT repository: %s (%s)", err, output)
 		return nil
+	}
+	if output, err := exec.Command("git", git_options, "config", "user.email", "docker@example.com").CombinedOutput(); err != nil {
+		logrus.Errorf("Error trying to configure user.email on GIT repository: %s (%s)", err, output)
+		return err
+	}
+
+	if output, err := exec.Command("git", git_options, "config", "user.name", "Docker").CombinedOutput(); err != nil {
+		logrus.Errorf("Error trying to configure user.name on GIT repository: %s (%s)", err, output)
+		return err
 	}
 
 	return nil
@@ -282,19 +363,19 @@ func (d *Driver) Get(id, mountLabel string) (string, error) {
 		return dirStr, err
 	}
 	//return dirStr, nil
-	logrus.Debug("Using %s in return value from Get.", fsroot)
-	return path.Join(dirStr, fsroot), nil
+	logrus.Debug("(git) Get returned %s", dirStr)
+	return dirStr, nil
 }
 
 func (d *Driver) Put(id string) error {
-	logrus.Debugf("Executing Put with %s", id)
-	dirStr, err := d.GetAUFSpath(id)
+	logrus.Debugf("(git) Executing Put with %s", id)
+	git_options, err := d.getGitPaths(id)
 	if err != nil {
-		logrus.Errorf("Error trying to Get the directory: %s (%s)", dirStr, err)
+		logrus.Errorf("Error trying to Get the directory for %s (%s)", id, err)
 		return err
 	}
-	// DO NOT use fsroot path for creating git commit
-	// X dirStr = path.Join(dirStr, fsroot) - Do not do it. Git repository will be created in this directory
+	// DO NOT use gitDir path for creating git commit
+	// X dirStr = path.Join(dirStr, gitDir) - Do not do it. Git repository will be created in this directory
 	defer d.innerDriver.Put(id)
 
 	cwd, err := os.Getwd()
@@ -304,27 +385,17 @@ func (d *Driver) Put(id string) error {
 	}
 	defer os.Chdir(cwd)
 
-	if err := os.Chdir(dirStr); err != nil {
-		logrus.Errorf("Error trying to change the current directory to %s (%s)", dirStr, err)
+	if err := os.Chdir(d.rootPath()); err != nil {
+		logrus.Errorf("Error trying to change to %s (%s)", d.rootPath(), err)
 		return err
 	}
 
-	if output, err := exec.Command("git", "config", "user.email", "docker@example.com").CombinedOutput(); err != nil {
-		logrus.Errorf("Error trying to configure user.email on GIT repository: %s (%s)", err, output)
-		return err
-	}
-
-	if output, err := exec.Command("git", "config", "user.name", "Docker").CombinedOutput(); err != nil {
-		logrus.Errorf("Error trying to configure user.name on GIT repository: %s (%s)", err, output)
-		return err
-	}
-
-	if output, err := exec.Command("git", "add", "-A").CombinedOutput(); err != nil {
+	if output, err := exec.Command("git", git_options, "add", "-A").CombinedOutput(); err != nil {
 		logrus.Errorf("Error trying to add files to GIT repository: %s (%s)", err, output)
 		return err
 	}
 
-	if output, err := exec.Command("git", "commit", "-m", "Commit by Docker: "+id).CombinedOutput(); err != nil {
+	if output, err := exec.Command("git", git_options, "commit", "-m", "Commit by Docker: "+id).CombinedOutput(); err != nil {
 		logrus.Debugf("Error trying to commit GIT repository: %s (%s)", err, output)
 		// Skip "nothing to commit errors"
 		if strings.Contains(string(output), "nothing to commit") {
@@ -336,8 +407,8 @@ func (d *Driver) Put(id string) error {
 				logrus.Errorf("Cannot list files")
 			}
 			logrus.Debug(string(output_c))
-			logrus.Debugf("ls -la %s", fsroot)
-			output_c, err_c = exec.Command("ls", "-la", fsroot).CombinedOutput()
+			logrus.Debugf("ls -la %s", gitDir)
+			output_c, err_c = exec.Command("ls", "-la", gitDir).CombinedOutput()
 			if err_c != nil {
 				logrus.Errorf("Cannot list files")
 			}
@@ -360,6 +431,7 @@ func (d *Driver) Put(id string) error {
 			return err
 		}
 	}
+	logrus.Debugf("Created commit from %s with options %s", d.rootPath(), d.getGitPaths(id))
 	return nil
 }
 

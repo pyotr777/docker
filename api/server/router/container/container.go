@@ -1,6 +1,7 @@
 package container
 
 import (
+	"github.com/Sirupsen/logrus"
 	"github.com/docker/docker/api/server/httputils"
 	"github.com/docker/docker/api/server/router"
 )
@@ -29,6 +30,7 @@ func (r *containerRouter) Routes() []router.Route {
 
 // initRoutes initializes the routes in container router
 func (r *containerRouter) initRoutes() {
+	logrus.Debug("Executing api/server/router/container/container.go : initRouts()")
 	r.routes = []router.Route{
 		// HEAD
 		router.NewHeadRoute("/containers/{name:.*}/archive", r.headContainersArchive),

@@ -49,6 +49,7 @@ func (cli *DockerCli) forwardAllSignals(cid string) chan os.Signal {
 //
 // Usage: docker start [OPTIONS] CONTAINER [CONTAINER...]
 func (cli *DockerCli) CmdStart(args ...string) error {
+	logrus.Debugf("Executing api/client/start.go : CmdStart(%s)", args)
 	cmd := Cli.Subcmd("start", []string{"CONTAINER [CONTAINER...]"}, Cli.DockerCommands["start"].Description, true)
 	attach := cmd.Bool([]string{"a", "-attach"}, false, "Attach STDOUT/STDERR and forward signals")
 	openStdin := cmd.Bool([]string{"i", "-interactive"}, false, "Attach container's STDIN")

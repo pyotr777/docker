@@ -1,0 +1,15 @@
+sudo: required
+
+python:
+  - "2.7"
+
+services:
+  - docker
+
+before_install:
+    - docker build -t merge-com .
+    - docker run --name merge -itd --privileged -v ${DOCKER_DIR}:/go/src/github.com/docker/docker merge-com hack/make.sh binary
+    - docker -v
+    - docker exec -tid merge cp bundles/latest/binary/docker /usr/bin/
+    - docker exec -tid merge docker daemon -s git -D
+    - docker exec -tid merge docker run hello-world

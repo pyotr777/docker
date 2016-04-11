@@ -3,12 +3,12 @@ package cli
 import (
 	"errors"
 	"fmt"
+	"github.com/Sirupsen/logrus"
+	flag "github.com/docker/docker/pkg/mflag"
 	"io"
 	"os"
 	"reflect"
 	"strings"
-
-	flag "github.com/docker/docker/pkg/mflag"
 )
 
 // Cli represents a command line interface.
@@ -31,6 +31,7 @@ type Initializer interface {
 
 // New instantiates a ready-to-use Cli.
 func New(handlers ...Handler) *Cli {
+	logrus.Debugf("Executing cli/cli.go : New(%s)", handlers)
 	// make the generic Cli object the first cli handler
 	// in order to handle `docker help` appropriately
 	cli := new(Cli)
@@ -46,6 +47,7 @@ func (err initErr) Error() string {
 }
 
 func (cli *Cli) command(args ...string) (func(...string) error, error) {
+	logrus.Debugf("Executing cli/cli.go : command(%s)", args)
 	for _, c := range cli.handlers {
 		if c == nil {
 			continue
@@ -73,6 +75,7 @@ func (cli *Cli) command(args ...string) (func(...string) error, error) {
 
 // Run executes the specified command.
 func (cli *Cli) Run(args ...string) error {
+	logrus.Debugf("Executing cli/cli.go : Run(%s)", args)
 	if len(args) > 1 {
 		command, err := cli.command(args[:2]...)
 		switch err := err.(type) {

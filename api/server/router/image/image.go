@@ -1,6 +1,7 @@
 package image
 
 import (
+	"github.com/Sirupsen/logrus"
 	"github.com/docker/docker/api/server/httputils"
 	"github.com/docker/docker/api/server/router"
 )
@@ -14,6 +15,7 @@ type imageRouter struct {
 
 // NewRouter initializes a new image router
 func NewRouter(backend Backend, decoder httputils.ContainerDecoder) router.Router {
+	logrus.Debugf("Executing api/server/router/image/image.go NewRouter(%s,%s)", backend, decoder)
 	r := &imageRouter{
 		backend: backend,
 		decoder: decoder,
@@ -29,6 +31,7 @@ func (r *imageRouter) Routes() []router.Route {
 
 // initRoutes initializes the routes in the image router
 func (r *imageRouter) initRoutes() {
+	logrus.Debug("Executing api/server/router/image/image.go initRoutes()")
 	r.routes = []router.Route{
 		// GET
 		router.NewGetRoute("/images/json", r.getImagesJSON),

@@ -315,6 +315,11 @@ func getParentIds(root, id string) ([]string, error) {
 	return out, s.Err()
 }
 
+// Need to comply with interface Driver ()
+func (d *Driver) CreateReadWrite(id, parent string, mountLabel string, storageOpt map[string]string) error {
+	return d.Create(id, parent, mountLabel, storageOpt)
+}
+
 // Created directories for AUFS and git
 func (d *Driver) Create(id, parent string, mountLabel string, storageOpt map[string]string) error {
 	logrus.Debugf("(git) Executing Create with %s, %s, %s", id, parent, mountLabel)

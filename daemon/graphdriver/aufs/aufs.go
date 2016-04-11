@@ -78,7 +78,7 @@ type Driver struct {
 // Init returns a new AUFS driver.
 // An error is returned if AUFS is not supported.
 func Init(root string, options []string, uidMaps, gidMaps []idtools.IDMap) (graphdriver.Driver, error) {
-
+	logrus.Debugf("Called AUFS Init with %s", root)
 	// Try to load the aufs kernel module
 	if err := supportsAufs(); err != nil {
 		return nil, graphdriver.ErrNotSupported
@@ -135,6 +135,7 @@ func Init(root string, options []string, uidMaps, gidMaps []idtools.IDMap) (grap
 			return nil, err
 		}
 	}
+	logrus.Debug("Initialise AUFS completed")
 	return a, nil
 }
 
@@ -203,7 +204,7 @@ func (a *Driver) CreateReadWrite(id, parent, mountLabel string, storageOpt map[s
 // Create three folders for each id
 // mnt, layers, and diff
 func (a *Driver) Create(id, parent, mountLabel string, storageOpt map[string]string) error {
-
+	logrus.Debugf("(AUFS) Executing Create with %s, %s, %s", id, parent, mountLabel)
 	if len(storageOpt) != 0 {
 		return fmt.Errorf("--storage-opt is not supported for aufs")
 	}
@@ -252,6 +253,7 @@ func (a *Driver) createDirsFor(id string) error {
 	// The path of directories are <aufs_root_path>/mnt/<image_id>
 	// and <aufs_root_path>/diff/<image_id>
 	for _, p := range paths {
+		logrus.Debugf("(AUFS) Creating dir %s", path.Join(a.rootPath(), p, id))
 		if err := idtools.MkdirAllAs(path.Join(a.rootPath(), p, id), 0755, rootUID, rootGID); err != nil {
 			return err
 		}
@@ -340,7 +342,7 @@ func (a *Driver) Put(id string) error {
 		a.pathCache[id] = m
 	}
 	a.pathCacheLock.Unlock()
-
+	logrus.Debugf("(AUFS) Unmounting %s", m)
 	err := a.unmount(m)
 	if err != nil {
 		logrus.Debugf("Failed to unmount %s aufs: %v", id, err)

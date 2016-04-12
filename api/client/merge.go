@@ -6,7 +6,6 @@ import (
 	"net/http/httputil"
 	"os"
 	"runtime"
-	"strings"
 
 	"github.com/Sirupsen/logrus"
 	Cli "github.com/docker/docker/cli"
@@ -20,56 +19,14 @@ import (
 	"runtime/debug"
 )
 
-const (
-	errCmdNotFound          = "not found or does not exist"
-	errCmdCouldNotBeInvoked = "could not be invoked"
-)
-
-func (cid *cidFile) Close() error {
-	cid.file.Close()
-
-	if !cid.written {
-		if err := os.Remove(cid.path); err != nil {
-			return fmt.Errorf("failed to remove the CID file '%s': %s \n", cid.path, err)
-		}
-	}
-
-	return nil
-}
-
-func (cid *cidFile) Write(id string) error {
-	if _, err := cid.file.Write([]byte(id)); err != nil {
-		return fmt.Errorf("Failed to write the container ID to the file: %s", err)
-	}
-	cid.written = true
-	return nil
-}
-
-// if container start fails with 'command not found' error, return 127
-// if container start fails with 'command cannot be invoked' error, return 126
-// return 125 for generic docker daemon failures
-func runStartContainerErr(err error) error {
-	trimmedErr := strings.TrimPrefix(err.Error(), "Error response from daemon: ")
-	statusError := Cli.StatusError{StatusCode: 125}
-	if strings.HasPrefix(trimmedErr, "Container command") {
-		if strings.Contains(trimmedErr, errCmdNotFound) {
-			statusError = Cli.StatusError{StatusCode: 127}
-		} else if strings.Contains(trimmedErr, errCmdCouldNotBeInvoked) {
-			statusError = Cli.StatusError{StatusCode: 126}
-		}
-	}
-
-	return statusError
-}
-
-// CmdRun runs a command in a new container.
+// CmdMerge will runs a command in a new container from two images.
 //
-// Usage: docker run [OPTIONS] IMAGE [COMMAND] [ARG...]
-func (cli *DockerCli) CmdRun(args ...string) error {
-	logrus.Debugf("Executing api/client/run.go : CmdRun(%s)", args)
+// Usage: docker merge [OPTIONS] IMAGE1 IMAGE2 [COMMAND] [ARG...]
+func (cli *DockerCli) CmdMerge(args ...string) error {
+	logrus.Debugf("Executing api/client/merge.go : CmdMerge(%s)", args)
 	logrus.Debug("Stack trace:")
 	debug.PrintStack()
-	cmd := Cli.Subcmd("run", []string{"IMAGE [COMMAND] [ARG...]"}, Cli.DockerCommands["run"].Description, true)
+	cmd := Cli.Subcmd("merge", []string{"IMAGE1 IMAGE2 [COMMAND] [ARG...]"}, Cli.DockerCommands["merge"].Description, true)
 	addTrustedFlags(cmd, true)
 
 	// These are flags not stored in Config/HostConfig

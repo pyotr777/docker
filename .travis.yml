@@ -8,7 +8,7 @@ services:
 
 before_script:
   - sudo apt-get update
-  - sudo apt-get install -y -q docker-engine
+  - sudo apt-get install -y docker-engine
 
 before_install:
     - docker build -t merge-com .

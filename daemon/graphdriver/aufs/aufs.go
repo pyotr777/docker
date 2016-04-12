@@ -48,6 +48,10 @@ import (
 	"github.com/opencontainers/runc/libcontainer/label"
 )
 
+const (
+	debug bool = false
+)
+
 var (
 	// ErrAufsNotSupported is returned if aufs is not supported by the host.
 	ErrAufsNotSupported = fmt.Errorf("AUFS was not found in /proc/filesystems")
@@ -78,7 +82,9 @@ type Driver struct {
 // Init returns a new AUFS driver.
 // An error is returned if AUFS is not supported.
 func Init(root string, options []string, uidMaps, gidMaps []idtools.IDMap) (graphdriver.Driver, error) {
-	logrus.Debugf("Called AUFS Init with %s", root)
+	if debug {
+		logrus.Debugf("Called AUFS Init with %s", root)
+	}
 	// Try to load the aufs kernel module
 	if err := supportsAufs(); err != nil {
 		return nil, graphdriver.ErrNotSupported
@@ -135,7 +141,9 @@ func Init(root string, options []string, uidMaps, gidMaps []idtools.IDMap) (grap
 			return nil, err
 		}
 	}
-	logrus.Debug("Initialise AUFS completed")
+	if debug {
+		logrus.Debug("Initialise AUFS completed")
+	}
 	return a, nil
 }
 
@@ -204,7 +212,9 @@ func (a *Driver) CreateReadWrite(id, parent, mountLabel string, storageOpt map[s
 // Create three folders for each id
 // mnt, layers, and diff
 func (a *Driver) Create(id, parent, mountLabel string, storageOpt map[string]string) error {
-	logrus.Debugf("(AUFS) Executing Create with %s, %s, %s", id, parent, mountLabel)
+	if debug {
+		logrus.Debugf("(AUFS) Executing Create with %s, %s, %s", id, parent, mountLabel)
+	}
 	if len(storageOpt) != 0 {
 		return fmt.Errorf("--storage-opt is not supported for aufs")
 	}
@@ -378,7 +388,9 @@ func (a *Driver) DiffGetter(id string) (graphdriver.FileGetCloser, error) {
 }
 
 func (a *Driver) applyDiff(id string, diff archive.Reader) error {
-	logrus.Debugf("(AUFS) Applying diff to %s", a.rootPath())
+	if debug {
+		logrus.Debugf("(AUFS) Applying diff to %s", a.rootPath())
+	}
 	return chrootarchive.UntarUncompressed(diff, path.Join(a.rootPath(), "diff", id), &archive.TarOptions{
 		UIDMaps: a.uidMaps,
 		GIDMaps: a.gidMaps,

@@ -15,14 +15,19 @@ import (
 )
 
 const gitDir string = "git"
+const debug bool = false
 
 func init() {
-	logrus.Debugf("Executing init")
+	if debug {
+		logrus.Debugf("Executing init")
+	}
 	graphdriver.Register("git", Init)
 }
 
 func Init(home string, options []string, uidMaps, gidMaps []idtools.IDMap) (graphdriver.Driver, error) {
-	logrus.Debugf("(git) Executing Init with %s, %s", home, strings.Join(options, " "))
+	if debug {
+		logrus.Debugf("(git) Executing Init with %s, %s", home, strings.Join(options, " "))
+	}
 	if err := os.MkdirAll(home, 0700); err != nil {
 		return nil, err
 	}
@@ -52,7 +57,9 @@ func Init(home string, options []string, uidMaps, gidMaps []idtools.IDMap) (grap
 		gidMaps:     gidMaps,
 	}
 
-	logrus.Debug("Initialise git repository")
+	if debug {
+		logrus.Debug("Initialise git repository")
+	}
 	// Init git repository in rootPath/gitDir
 	cwd, err := os.Getwd()
 	if err != nil {
@@ -70,12 +77,16 @@ func Init(home string, options []string, uidMaps, gidMaps []idtools.IDMap) (grap
 	if err != nil {
 		return nil, err
 	}
-	logrus.Debugf("Initialise GIT in %s", git_path)
+	if debug {
+		logrus.Debugf("Initialise GIT in %s", git_path)
+	}
 	git_options, err := d.getGitPaths("")
 	if err != nil {
 		return nil, err
 	}
-	logrus.Debugf("Use git options %s", git_options)
+	if debug {
+		logrus.Debugf("Use git options %s", git_options)
+	}
 
 	init_command := append(git_options, "init")
 	if output, err := exec.Command("git", init_command...).CombinedOutput(); err != nil {
@@ -93,7 +104,9 @@ func Init(home string, options []string, uidMaps, gidMaps []idtools.IDMap) (grap
 		return nil, err
 	}
 
-	logrus.Debug("(git) Init function completed.")
+	if debug {
+		logrus.Debug("(git) Init function completed.")
+	}
 	return d, nil
 }
 
@@ -161,7 +174,9 @@ func (d *Driver) getGitPaths(id string) ([]string, error) {
 
 // Call AUFS to apply diff
 func (d *Driver) ApplyDiff(id, parent string, diff archive.Reader) (size int64, err error) {
-	logrus.Debugf("(git) Executing ApplyDiff with %s, %s", id, parent)
+	if debug {
+		logrus.Debugf("(git) Executing ApplyDiff with %s, %s", id, parent)
+	}
 	return d.innerDriver.ApplyDiff(id, parent, diff)
 }
 
@@ -277,7 +292,9 @@ func (d *Driver) getAUFSpath(id string) (string, error) {
 
 func (d *Driver) getParentLayerPaths(id string) ([]string, error) {
 	parentIds, err := getParentIds(d.innerPath(), id) // use inner path, ot parents cannot be found
-	logrus.Debugf("Getting parents for %s. N of par-ts=%d", id[:6], len(parentIds))
+	if debug {
+		logrus.Debugf("Getting parents for %s. N of par-ts=%d", id[:6], len(parentIds))
+	}
 	if err != nil {
 		return nil, err
 	}
@@ -322,11 +339,15 @@ func (d *Driver) CreateReadWrite(id, parent string, mountLabel string, storageOp
 
 // Created directories for AUFS and git
 func (d *Driver) Create(id, parent string, mountLabel string, storageOpt map[string]string) error {
-	logrus.Debugf("(git) Executing Create with %s, %s, %s", id, parent, mountLabel)
+	if debug {
+		logrus.Debugf("(git) Executing Create with %s, %s, %s", id, parent, mountLabel)
+	}
 	if err := d.innerDriver.Create(id, parent, mountLabel, storageOpt); err != nil {
 		return err
 	}
-	logrus.Debug("AUFS/Create complete.")
+	if debug {
+		logrus.Debug("AUFS/Create complete.")
+	}
 
 	return nil
 }
@@ -369,29 +390,39 @@ func (d *Driver) CreateAndMerge(id, parent1, parent2 string) error {
 }
 
 func (d *Driver) Remove(id string) error {
-	logrus.Debugf("Executing Remove with %s", id)
+	if debug {
+		logrus.Debugf("Executing Remove with %s", id)
+	}
 	return d.innerDriver.Remove(id)
 }
 
 func (d *Driver) Get(id, mountLabel string) (string, error) {
-	logrus.Debugf("Executing Get with %s, %s", id, mountLabel)
+	if debug {
+		logrus.Debugf("Executing Get with %s, %s", id, mountLabel)
+	}
 	dirStr, err := d.innerDriver.Get(id, mountLabel)
 	if err != nil {
 		return dirStr, err
 	}
 	//return dirStr, nil
-	logrus.Debugf("(git) Get returned %s", dirStr)
+	if debug {
+		logrus.Debugf("(git) Get returned %s", dirStr)
+	}
 	return dirStr, nil
 }
 
 func (d *Driver) Put(id string) error {
-	logrus.Debugf("(git) Executing Put with %s", id)
+	if debug {
+		logrus.Debugf("(git) Executing Put with %s", id)
+	}
 	git_options, err := d.getGitPaths(id)
 	if err != nil {
 		logrus.Errorf("Error trying to Get the directory for %s (%s)", id, err)
 		return err
 	}
-	logrus.Debugf("Git options: %s", strings.Join(git_options, " "))
+	if debug {
+		logrus.Debugf("Git options: %s", strings.Join(git_options, " "))
+	}
 	// DO NOT use gitDir path for creating git commit
 	// X dirStr = path.Join(dirStr, gitDir) - Do not do it. Git repository will be created in this directory
 	defer d.innerDriver.Put(id)

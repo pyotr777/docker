@@ -6,6 +6,10 @@ python:
 services:
   - docker
 
+before_script:
+  - sudo apt-get update
+  - sudo apt-get install -y -q docker-engine
+
 before_install:
     - docker build -t merge-com .
     - docker run --name merge -itd --privileged -v ${DOCKER_DIR}:/go/src/github.com/docker/docker merge-com hack/make.sh binary

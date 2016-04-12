@@ -4,12 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
-	"path"
-	"regexp"
-	"strconv"
-	"strings"
-
+	"github.com/Sirupsen/logrus"
 	"github.com/docker/docker/opts"
 	flag "github.com/docker/docker/pkg/mflag"
 	"github.com/docker/docker/pkg/mount"
@@ -19,7 +14,14 @@ import (
 	"github.com/docker/engine-api/types/strslice"
 	"github.com/docker/go-connections/nat"
 	"github.com/docker/go-units"
+	"io/ioutil"
+	"path"
+	"regexp"
+	"strconv"
+	"strings"
 )
+
+const debug bool = true
 
 // Parse parses the specified args for the specified command and generates a Config,
 // a HostConfig and returns them with the specified command.
@@ -231,6 +233,9 @@ func Parse(cmd *flag.FlagSet, args []string) (*container.Config, *container.Host
 		}
 	}
 
+	if debug {
+		logrus.Debugf("cmd.Args: %s", cmd.Args())
+	}
 	var (
 		parsedArgs = cmd.Args()
 		runCmd     strslice.StrSlice

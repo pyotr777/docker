@@ -2,14 +2,16 @@ package client
 
 import (
 	"encoding/json"
-	"net/url"
-	"strings"
-
+	"github.com/Sirupsen/logrus"
 	"github.com/docker/engine-api/types"
 	"github.com/docker/engine-api/types/container"
 	"github.com/docker/engine-api/types/network"
 	"golang.org/x/net/context"
+	"net/url"
+	"strings"
 )
+
+const debug bool = true
 
 type configWrapper struct {
 	*container.Config
@@ -20,6 +22,9 @@ type configWrapper struct {
 // ContainerCreate creates a new container based in the given configuration.
 // It can be associated with a name, but it's not mandatory.
 func (cli *Client) ContainerCreate(ctx context.Context, config *container.Config, hostConfig *container.HostConfig, networkingConfig *network.NetworkingConfig, containerName string) (types.ContainerCreateResponse, error) {
+	if debug {
+		logrus.Debugf("Called vendor/src/github.com/docker/engine-api/client/container_create.go:ContainerCreate with config.Image=%s", config.Image)
+	}
 	var response types.ContainerCreateResponse
 	query := url.Values{}
 	if containerName != "" {

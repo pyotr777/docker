@@ -10,13 +10,18 @@ import (
 	"github.com/docker/docker/api/server/httputils"
 	"github.com/docker/docker/pkg/ioutils"
 	"golang.org/x/net/context"
+	"runtime/debug"
 )
+
+const debug_flag bool = true
 
 // DebugRequestMiddleware dumps the request to logger
 func DebugRequestMiddleware(handler httputils.APIFunc) httputils.APIFunc {
 	return func(ctx context.Context, w http.ResponseWriter, r *http.Request, vars map[string]string) error {
 		logrus.Debugf("Calling %s %s", r.Method, r.RequestURI)
-
+		if debug_flag {
+			debug.PrintStack()
+		}
 		if r.Method != "POST" {
 			return handler(ctx, w, r, vars)
 		}

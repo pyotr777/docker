@@ -3,11 +3,12 @@ package reference
 import (
 	"errors"
 	"fmt"
-	"strings"
-
+	"github.com/Sirupsen/logrus"
 	"github.com/docker/distribution/digest"
 	distreference "github.com/docker/distribution/reference"
 	"github.com/docker/docker/image/v1"
+	"runtime/debug"
+	"strings"
 )
 
 const (
@@ -18,7 +19,8 @@ const (
 	// LegacyDefaultHostname is automatically converted to DefaultHostname
 	LegacyDefaultHostname = "index.docker.io"
 	// DefaultRepoPrefix is the prefix used for default repositories in default host
-	DefaultRepoPrefix = "library/"
+	DefaultRepoPrefix      = "library/"
+	debug_flag        bool = true
 )
 
 // Named is an object with a full name
@@ -53,6 +55,10 @@ type Canonical interface {
 // returned.
 // If an error was encountered it is returned, along with a nil Reference.
 func ParseNamed(s string) (Named, error) {
+	if debug_flag {
+		logrus.Debugf("Called reference/reference.go ParseNamed(%s)", s)
+		debug.PrintStack()
+	}
 	named, err := distreference.ParseNamed(s)
 	if err != nil {
 		return nil, fmt.Errorf("Error parsing reference: %q is not a valid repository/tag", s)

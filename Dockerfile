@@ -274,3 +274,6 @@ ENTRYPOINT ["hack/dind"]
 
 # Upload docker source
 COPY . /go/src/github.com/docker/docker
+
+# Install Delve debugger
+RUN go get -v -u github.com/peterh/liner github.com/derekparker/delve/cmd/dlv

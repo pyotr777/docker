@@ -47,19 +47,28 @@ if [ "$IAMSTATIC" == "true" ] && [ "$(go env GOHOSTOS)" == "linux" ]; then
 	fi
 fi
 
-echo "Building: $DEST/$BINARY_FULLNAME"
-ALLFLAGS=("-o" "$DEST/$BINARY_FULLNAME") 
-ALLLDFLAGS=("-ldflags" "$LDFLAGS" "$LDFLAGS_STATIC_DOCKER")
-ALLFLAGS=("${ALLFLAGS[@]}" "${BUILDFLAGS[@]}" "${ALLLDFLAGS[@]}")
+echo "Building: $DEST/$BINARY_FULLNAME in $(pwd)"
+echo "GOAPTH=$GOPATH"
+FLAGS1=("-o" "$DEST/$BINARY_FULLNAME")
+FLAGS2=("-tags" "autogen netgo static_build sqlite_omit_load_extension apparmor seccomp selinux daemon journald libdm_no_deferred_remove")
+FLAGS3=("-installsuffix" "netgo")
+FLAGS4=("-a")
+FLAGS5=("-ldflags" "\"-w\"")
+FLAGS6=("-extldflags" "\"-static\"")
+ALLFLAGS=("${FLAGS1[@]}" "${FLAGS2[@]}" "${FLAGS3[@]}" "${FLAGS4[@]}" "${FLAGS5[@]}" "${FLAGS6[@]}")
+
+# Split flags on string " -a", a - any charachter
+# Replace " -a" with "\n-a"
+# Store result in arral ALLFLAGS
 echo "FLAGS: ${ALLFLAGS[@]}"
-go build \
-	-o "$DEST/$BINARY_FULLNAME" \
-	"${BUILDFLAGS[@]}" \
-	-ldflags "
-		$LDFLAGS
-		$LDFLAGS_STATIC_DOCKER
-	" \
-	./docker
+# go build \
+dlv debug \
+    --build-flags="${FLAGS1[@]}" \
+    --build-flags="${FLAGS2[@]}" \
+    --build-flags="${FLAGS3[@]}" \
+    --build-flags="${FLAGS4[@]}" \
+    --build-flags="${FLAGS5[@]}" \
+    ./docker
 )
 
 echo "Created binary: $DEST/$BINARY_FULLNAME"

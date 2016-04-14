@@ -60,6 +60,7 @@ func main() {
 	clientCli := client.NewDockerCli(stdin, stdout, stderr, clientFlags)
 
 	c := cli.New(clientCli, daemonCli)
+	_ = "breakpoint"
 	if err := c.Run(flag.Args()...); err != nil {
 		if sterr, ok := err.(cli.StatusError); ok {
 			if sterr.Status != "" {

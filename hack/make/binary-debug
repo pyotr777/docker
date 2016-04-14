@@ -1,0 +1,76 @@
+#!/bin/bash
+set -e
+
+BINARY_NAME="docker-$VERSION"
+BINARY_EXTENSION="$(binary_extension)"
+BINARY_FULLNAME="$BINARY_NAME$BINARY_EXTENSION"
+
+source "${MAKEDIR}/.go-autogen"
+
+(
+export GOGC=${DOCKER_BUILD_GOGC:-1000}
+
+if [ "$(go env GOOS)/$(go env GOARCH)" != "$(go env GOHOSTOS)/$(go env GOHOSTARCH)" ]; then
+	# must be cross-compiling!
+	case "$(go env GOOS)/$(go env GOARCH)" in
+		windows/amd64)
+			export CC=x86_64-w64-mingw32-gcc
+			export CGO_ENABLED=1
+			;;
+	esac
+fi
+
+if [ "$(go env GOOS)" == "linux" ] ; then
+	case "$(go env GOARCH)" in
+		arm*|386)
+			# linking for Linux on arm or x86 needs external linking to avoid
+			# https://github.com/golang/go/issues/9510 until we move to Go 1.6
+			if [ "$IAMSTATIC" == "true" ] ; then
+				export EXTLDFLAGS_STATIC="$EXTLDFLAGS_STATIC -zmuldefs"
+				export LDFLAGS_STATIC_DOCKER="$LDFLAGS_STATIC -extldflags \"$EXTLDFLAGS_STATIC\""
+
+			else
+				export LDFLAGS="$LDFLAGS -extldflags -zmuldefs"
+			fi
+			;;
+	esac
+fi
+
+if [ "$IAMSTATIC" == "true" ] && [ "$(go env GOHOSTOS)" == "linux" ]; then
+	if  [ "${GOOS}/${GOARCH}" == "darwin/amd64" ]; then
+		export CGO_ENABLED=1
+		export CC=o64-clang
+		export LDFLAGS='-linkmode external -s'
+		export LDFLAGS_STATIC_DOCKER='-extld='${CC}
+	else
+		export BUILDFLAGS=( "${BUILDFLAGS[@]/pkcs11 /}" ) # we cannot dlopen in pkcs11 in a static binary
+	fi
+fi
+
+echo "Building: $DEST/$BINARY_FULLNAME"
+
+FLAGS1=("-o" "$DEST/$BINARY_FULLNAME")
+FLAGS2=("-tags" "autogen netgo static_build sqlite_omit_load_extension apparmor seccomp selinux daemon journald libdm_no_deferred_remove")
+FLAGS3=("-installsuffix" "netgo")
+FLAGS4=("-a")
+FLAGS5=("-ldflags" "\"-w\"")
+FLAGS6=("-extldflags" "\"-static\"")
+ALLFLAGS=("${FLAGS1[@]}" "${FLAGS2[@]}" "${FLAGS3[@]}" "${FLAGS4[@]}" "${FLAGS5[@]}" "${FLAGS6[@]}")
+
+echo "FLAGS: ${ALLFLAGS[@]}"
+# go build \
+godebug build \
+    "${FLAGS1[@]}" \
+    "${FLAGS2[@]}" : \
+    "${FLAGS3[@]}" \
+    "${FLAGS4[@]}" \
+    "${FLAGS5[@]}" \
+    "${FLAGS6[@]}" \
+    ./docker
+)
+
+echo "Created binary: $DEST/$BINARY_FULLNAME"
+ln -sf "$BINARY_FULLNAME" "$DEST/docker$BINARY_EXTENSION"
+
+copy_containerd "$DEST" "hash"
+hash_files "$DEST/$BINARY_FULLNAME"

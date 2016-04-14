@@ -274,3 +274,11 @@ ENTRYPOINT ["hack/dind"]
 
 # Upload docker source
 COPY . /go/src/github.com/docker/docker
+
+# Install godebug
+WORKDIR /go
+ENV GOPATH="/go"
+RUN echo "$GOPATH"
+RUN go get -u github.com/pyotr777/godebug
+ENV GOPATH="/go:/go/src/github.com/docker/docker/vendor"
+WORKDIR /go/src/github.com/docker/docker

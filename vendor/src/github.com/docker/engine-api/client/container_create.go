@@ -11,7 +11,7 @@ import (
 	"strings"
 )
 
-const debug bool = true
+const debug_level int = 1
 
 type configWrapper struct {
 	*container.Config
@@ -22,7 +22,7 @@ type configWrapper struct {
 // ContainerCreate creates a new container based in the given configuration.
 // It can be associated with a name, but it's not mandatory.
 func (cli *Client) ContainerCreate(ctx context.Context, config *container.Config, hostConfig *container.HostConfig, networkingConfig *network.NetworkingConfig, containerName string) (types.ContainerCreateResponse, error) {
-	if debug {
+	if debug_level > 0 {
 		logrus.Debugf("Called vendor/src/github.com/docker/engine-api/client/container_create.go:ContainerCreate with config.Image=%s", config.Image)
 	}
 	var response types.ContainerCreateResponse

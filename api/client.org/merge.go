@@ -19,15 +19,20 @@ import (
 	"runtime/debug"
 )
 
-const debug_flag bool = true
+const debug_level int = 1
 
 // CmdMerge will runs a command in a new container from two images.
 //
 // Usage: docker merge [OPTIONS] IMAGE1 IMAGE2 [COMMAND] [ARG...]
 func (cli *DockerCli) CmdMerge(args ...string) error {
-	logrus.Debugf("Executing api/client/merge.go : CmdMerge(%s)", args)
-	logrus.Debug("Stack trace:")
-	debug.PrintStack()
+	_ = "breakpoint"
+	if debug_level > 0 {
+		logrus.Debugf("Executing api/client/merge.go : CmdMerge(%s)", args)
+		if debug_level > 1 {
+			logrus.Debug("Stack trace:")
+			debug.PrintStack()
+		}
+	}
 	cmd := Cli.Subcmd("merge", []string{"IMAGE1 IMAGE2 [COMMAND] [ARG...]"}, Cli.DockerCommands["merge"].Description, true)
 	addTrustedFlags(cmd, true)
 
@@ -47,8 +52,9 @@ func (cli *DockerCli) CmdMerge(args ...string) error {
 
 	config, hostConfig, networkingConfig, cmd, err := runconfigopts.Parse(cmd, args)
 
-	if debug_flag {
+	if debug_level > 0 {
 		logrus.Debugf("Config in CmdMerge(): %s", config)
+		logrus.Debugf("cmd   : %s", cmd)
 	}
 
 	// just in case the Parse does not exit
@@ -112,7 +118,7 @@ func (cli *DockerCli) CmdMerge(args ...string) error {
 	if runtime.GOOS == "windows" {
 		hostConfig.ConsoleSize[0], hostConfig.ConsoleSize[1] = cli.getTtySize()
 	}
-	if debug_flag {
+	if debug_level > 0 {
 		logrus.Debug("Calling cli.createContainer(config,... ")
 	}
 	createResponse, err := cli.createContainer(config, hostConfig, networkingConfig, hostConfig.ContainerIDFile, *flName)

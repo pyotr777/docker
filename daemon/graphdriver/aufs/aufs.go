@@ -49,7 +49,7 @@ import (
 )
 
 const (
-	debug bool = false
+	debug_level int = 0
 )
 
 var (
@@ -82,7 +82,7 @@ type Driver struct {
 // Init returns a new AUFS driver.
 // An error is returned if AUFS is not supported.
 func Init(root string, options []string, uidMaps, gidMaps []idtools.IDMap) (graphdriver.Driver, error) {
-	if debug {
+	if debug_level > 0 {
 		logrus.Debugf("Called AUFS Init with %s", root)
 	}
 	// Try to load the aufs kernel module
@@ -141,7 +141,7 @@ func Init(root string, options []string, uidMaps, gidMaps []idtools.IDMap) (grap
 			return nil, err
 		}
 	}
-	if debug {
+	if debug_level > 0 {
 		logrus.Debug("Initialise AUFS completed")
 	}
 	return a, nil
@@ -212,7 +212,7 @@ func (a *Driver) CreateReadWrite(id, parent, mountLabel string, storageOpt map[s
 // Create three folders for each id
 // mnt, layers, and diff
 func (a *Driver) Create(id, parent, mountLabel string, storageOpt map[string]string) error {
-	if debug {
+	if debug_level > 0 {
 		logrus.Debugf("(AUFS) Executing Create with %s, %s, %s", id, parent, mountLabel)
 	}
 	if len(storageOpt) != 0 {
@@ -388,7 +388,7 @@ func (a *Driver) DiffGetter(id string) (graphdriver.FileGetCloser, error) {
 }
 
 func (a *Driver) applyDiff(id string, diff archive.Reader) error {
-	if debug {
+	if debug_level > 0 {
 		logrus.Debugf("(AUFS) Applying diff to %s", a.rootPath())
 	}
 	return chrootarchive.UntarUncompressed(diff, path.Join(a.rootPath(), "diff", id), &archive.TarOptions{

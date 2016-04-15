@@ -14,10 +14,19 @@ import (
 	containertypes "github.com/docker/engine-api/types/container"
 	networktypes "github.com/docker/engine-api/types/network"
 	"github.com/opencontainers/runc/libcontainer/label"
+	"runtime/debug"
 )
+
+const debug_level int = 2
 
 // ContainerCreate creates a container.
 func (daemon *Daemon) ContainerCreate(params types.ContainerCreateConfig) (types.ContainerCreateResponse, error) {
+	if debug_level > 0 {
+		logrus.Debugf("Called daemon/create.go:ContainerCreate(%v)", params)
+		if debug_level > 1 {
+			debug.PrintStack()
+		}
+	}
 	if params.Config == nil {
 		return types.ContainerCreateResponse{}, fmt.Errorf("Config cannot be empty in order to create a container")
 	}
@@ -58,6 +67,13 @@ func (daemon *Daemon) create(params types.ContainerCreateConfig) (retC *containe
 	)
 
 	if params.Config.Image != "" {
+		if debug_level > 0 {
+			logrus.Debugf("Called daemon/create.go with params: %s", params)
+			logrus.Debugf("Image  : %s", params.Config.Image)
+			logrus.Debugf("Command: %s", params.Config.Cmd)
+		}
+		// TODO Get name of the second image for merge
+
 		img, err = daemon.GetImage(params.Config.Image)
 		if err != nil {
 			return nil, err

@@ -1,0 +1,5 @@
+#!/bin/bash
+set -e
+hack/make.sh binary
+cp bundles/latest/binary/docker /usr/bin
+docker daemon -s git -D

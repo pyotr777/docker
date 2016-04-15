@@ -17,6 +17,7 @@ import (
 // versionMatcher defines a variable matcher to be parsed by the router
 // when a request is about to be served.
 const versionMatcher = "/v{version:[0-9.]+}"
+const debug_level int = 1
 
 // Config provides the configuration for the API server
 type Config struct {
@@ -113,6 +114,9 @@ func (s *HTTPServer) Close() error {
 }
 
 func (s *Server) makeHTTPHandler(handler httputils.APIFunc) http.HandlerFunc {
+	if debug_level > 0 {
+		logrus.Debugf("Called api/server/server.go with handler %v", handler)
+	}
 	return func(w http.ResponseWriter, r *http.Request) {
 		// Define the context that we'll pass around to share info
 		// like the docker-request-id.

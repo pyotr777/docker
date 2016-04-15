@@ -46,7 +46,7 @@ import (
 	"sync"
 )
 
-const debug bool = false
+const debug_level int = 0
 
 // Constants that identify the encoding of a value on the wire.
 const (
@@ -700,7 +700,7 @@ func getPropertiesLocked(t reflect.Type) *StructProperties {
 		oneof := f.Tag.Get("protobuf_oneof") != "" // special case
 		prop.Prop[i] = p
 		prop.order[i] = i
-		if debug {
+		if debug_level > 0 {
 			print(i, " ", f.Name, " ", t.String(), " ")
 			if p.Tag > 0 {
 				print(p.String())

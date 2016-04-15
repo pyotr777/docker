@@ -1179,6 +1179,9 @@ func (daemon *Daemon) GetImageID(refOrID string) (image.ID, error) {
 
 // GetImage returns an image corresponding to the image referred to by refOrID.
 func (daemon *Daemon) GetImage(refOrID string) (*image.Image, error) {
+	if debug_level > 0 {
+		logrus.Debugf("GetImage in daemon/deamon.go. refOrID=%s", refOrID)
+	}
 	imgID, err := daemon.GetImageID(refOrID)
 	if err != nil {
 		return nil, err

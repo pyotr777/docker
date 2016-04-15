@@ -13,14 +13,16 @@ import (
 	"runtime/debug"
 )
 
-const debug_flag bool = true
+const debug_level int = 2
 
 // DebugRequestMiddleware dumps the request to logger
 func DebugRequestMiddleware(handler httputils.APIFunc) httputils.APIFunc {
 	return func(ctx context.Context, w http.ResponseWriter, r *http.Request, vars map[string]string) error {
-		logrus.Debugf("Calling %s %s", r.Method, r.RequestURI)
-		if debug_flag {
-			debug.PrintStack()
+		if debug_level > 0 {
+			logrus.Debugf("Calling %s %s", r.Method, r.RequestURI)
+			if debug_level > 1 {
+				debug.PrintStack()
+			}
 		}
 		if r.Method != "POST" {
 			return handler(ctx, w, r, vars)

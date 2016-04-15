@@ -21,7 +21,7 @@ import (
 	"strings"
 )
 
-const debug bool = true
+const debug_level int = 1
 
 // Parse parses the specified args for the specified command and generates a Config,
 // a HostConfig and returns them with the specified command.
@@ -233,7 +233,7 @@ func Parse(cmd *flag.FlagSet, args []string) (*container.Config, *container.Host
 		}
 	}
 
-	if debug {
+	if debug_level > 0 {
 		logrus.Debugf("cmd.Args: %s", cmd.Args())
 	}
 	var (

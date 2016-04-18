@@ -8,10 +8,12 @@ import (
 	"io"
 	"os"
 	"reflect"
+
+	"runtime/debug"
 	"strings"
 )
 
-const debug bool = true
+const debug_level int = 1
 
 // Cli represents a command line interface.
 type Cli struct {
@@ -55,9 +57,13 @@ func (cli *Cli) command(args ...string) (func(...string) error, error) {
 		logrus.Debugf("Executing cli/cli.go : command(%s)", args)
 	}
 	for _, c := range cli.handlers {
+		// cli handlers has 3 elements
+		// []cli.Handler{(*cli.Cli)(0xc82037ca50), (*client.DockerCli)(0xc82023fe00), (*main.DaemonCli)(0xc82038c090)}
 		if c == nil {
 			continue
 		}
+		// when called with two words from docker command
+		// camelArgs will be these two words Capitalised.
 		camelArgs := make([]string, len(args))
 		for i, s := range args {
 			if len(s) == 0 {
@@ -65,6 +71,8 @@ func (cli *Cli) command(args ...string) (func(...string) error, error) {
 			}
 			camelArgs[i] = strings.ToUpper(s[:1]) + strings.ToLower(s[1:])
 		}
+		// sample methodName for merge command
+		// "CmdMergeHello-world"
 		methodName := "Cmd" + strings.Join(camelArgs, "")
 		method := reflect.ValueOf(c).MethodByName(methodName)
 		if method.IsValid() {
@@ -97,6 +105,7 @@ func (cli *Cli) Run(args ...string) error {
 		command, err := cli.command(args[0])
 		switch err := err.(type) {
 		case nil:
+			// Function CmdMerge is called here
 			return command(args[1:]...)
 		case initErr:
 			return err.error

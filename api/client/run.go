@@ -2,12 +2,6 @@ package client
 
 import (
 	"fmt"
-	"io"
-	"net/http/httputil"
-	"os"
-	"runtime"
-	"strings"
-
 	"github.com/Sirupsen/logrus"
 	Cli "github.com/docker/docker/cli"
 	"github.com/docker/docker/opts"
@@ -17,7 +11,12 @@ import (
 	"github.com/docker/engine-api/types"
 	"github.com/docker/libnetwork/resolvconf/dns"
 	"golang.org/x/net/context"
+	"io"
+	"net/http/httputil"
+	"os"
+	"runtime"
 	"runtime/debug"
+	"strings"
 )
 
 const (

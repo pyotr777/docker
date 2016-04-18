@@ -2,11 +2,6 @@ package client
 
 import (
 	"fmt"
-	"io"
-	"os"
-
-	"golang.org/x/net/context"
-
 	Cli "github.com/docker/docker/cli"
 	"github.com/docker/docker/pkg/jsonmessage"
 	"github.com/docker/docker/reference"
@@ -16,6 +11,9 @@ import (
 	"github.com/docker/engine-api/types"
 	"github.com/docker/engine-api/types/container"
 	networktypes "github.com/docker/engine-api/types/network"
+	"golang.org/x/net/context"
+	"io"
+	"os"
 )
 
 func (cli *DockerCli) pullImage(image string, out io.Writer) error {

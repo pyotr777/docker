@@ -2,20 +2,23 @@ package client
 
 import (
 	"fmt"
-	"io"
-	"net/http/httputil"
-	"os"
-	"runtime"
-
 	"github.com/Sirupsen/logrus"
 	Cli "github.com/docker/docker/cli"
 	"github.com/docker/docker/opts"
 	"github.com/docker/docker/pkg/promise"
 	"github.com/docker/docker/pkg/signal"
+	"github.com/docker/docker/reference"
 	runconfigopts "github.com/docker/docker/runconfig/opts"
+	"github.com/docker/engine-api/client"
 	"github.com/docker/engine-api/types"
+	"github.com/docker/engine-api/types/container"
+	networktypes "github.com/docker/engine-api/types/network"
 	"github.com/docker/libnetwork/resolvconf/dns"
 	"golang.org/x/net/context"
+	"io"
+	"net/http/httputil"
+	"os"
+	"runtime"
 	"runtime/debug"
 )
 
@@ -115,7 +118,7 @@ func (cli *DockerCli) CmdMerge(args ...string) error {
 	if debug_flag {
 		logrus.Debug("Calling cli.createContainer(config,... ")
 	}
-	createResponse, err := cli.createContainer(config, hostConfig, networkingConfig, hostConfig.ContainerIDFile, *flName)
+	createResponse, err := cli.mergeContainer(config, hostConfig, networkingConfig, hostConfig.ContainerIDFile, *flName)
 	if err != nil {
 		cmd.ReportError(err.Error(), true)
 		return runStartContainerErr(err)
@@ -264,4 +267,71 @@ func (cli *DockerCli) CmdMerge(args ...string) error {
 		return Cli.StatusError{StatusCode: status}
 	}
 	return nil
+}
+
+func (cli *DockerCli) mergeContainer(config *container.Config, hostConfig *container.HostConfig, networkingConfig *networktypes.NetworkingConfig, cidfile, name string) (*types.ContainerCreateResponse, error) {
+	var containerIDFile *cidFile
+	if cidfile != "" {
+		var err error
+		if containerIDFile, err = newCIDFile(cidfile); err != nil {
+			return nil, err
+		}
+		defer containerIDFile.Close()
+	}
+
+	var trustedRef reference.Canonical
+	_, ref, err := reference.ParseIDOrReference(config.Image)
+	if err != nil {
+		return nil, err
+	}
+	if ref != nil {
+		ref = reference.WithDefaultTag(ref)
+
+		if ref, ok := ref.(reference.NamedTagged); ok && isTrusted() {
+			var err error
+			trustedRef, err = cli.trustedReference(ref)
+			if err != nil {
+				return nil, err
+			}
+			config.Image = trustedRef.String()
+		}
+	}
+
+	//create the container
+	response, err := cli.client.ContainerMerge(context.Background(), config, hostConfig, networkingConfig, name)
+
+	//if image not found try to pull it
+	if err != nil {
+		if client.IsErrImageNotFound(err) && ref != nil {
+			fmt.Fprintf(cli.err, "Unable to find image '%s' locally\n", ref.String())
+
+			// we don't want to write to stdout anything apart from container.ID
+			if err = cli.pullImage(config.Image, cli.err); err != nil {
+				return nil, err
+			}
+			if ref, ok := ref.(reference.NamedTagged); ok && trustedRef != nil {
+				if err := cli.tagTrusted(trustedRef, ref); err != nil {
+					return nil, err
+				}
+			}
+			// Retry
+			var retryErr error
+			response, retryErr = cli.client.ContainerMerge(context.Background(), config, hostConfig, networkingConfig, name)
+			if retryErr != nil {
+				return nil, retryErr
+			}
+		} else {
+			return nil, err
+		}
+	}
+
+	for _, warning := range response.Warnings {
+		fmt.Fprintf(cli.err, "WARNING: %s\n", warning)
+	}
+	if containerIDFile != nil {
+		if err = containerIDFile.Write(response.ID); err != nil {
+			return nil, err
+		}
+	}
+	return &response, nil
 }

@@ -22,6 +22,7 @@ import (
 const (
 	errCmdNotFound          = "not found or does not exist"
 	errCmdCouldNotBeInvoked = "could not be invoked"
+	debug_level             = 1
 )
 
 func (cid *cidFile) Close() error {
@@ -65,9 +66,13 @@ func runStartContainerErr(err error) error {
 //
 // Usage: docker run [OPTIONS] IMAGE [COMMAND] [ARG...]
 func (cli *DockerCli) CmdRun(args ...string) error {
-	logrus.Debugf("Executing api/client/run.go : CmdRun(%s)", args)
-	logrus.Debug("Stack trace:")
-	debug.PrintStack()
+	if debug_level > 0 {
+		logrus.Debugf("Executing api/client/run.go : CmdRun(%s)", args)
+		if debug_level > 1 {
+			logrus.Debug("Stack trace:")
+			debug.PrintStack()
+		}
+	}
 	cmd := Cli.Subcmd("run", []string{"IMAGE [COMMAND] [ARG...]"}, Cli.DockerCommands["run"].Description, true)
 	addTrustedFlags(cmd, true)
 

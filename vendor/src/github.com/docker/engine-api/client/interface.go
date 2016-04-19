@@ -30,6 +30,7 @@ type APIClient interface {
 	ContainerKill(ctx context.Context, containerID, signal string) error
 	ContainerList(ctx context.Context, options types.ContainerListOptions) ([]types.Container, error)
 	ContainerLogs(ctx context.Context, options types.ContainerLogsOptions) (io.ReadCloser, error)
+	ContainerMerge(ctx context.Context, config *container.Config, hostConfig *container.HostConfig, networkingConfig *network.NetworkingConfig, containerName string) (types.ContainerCreateResponse, error)
 	ContainerPause(ctx context.Context, containerID string) error
 	ContainerRemove(ctx context.Context, options types.ContainerRemoveOptions) error
 	ContainerRename(ctx context.Context, containerID, newContainerName string) error

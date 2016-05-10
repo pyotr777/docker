@@ -9,7 +9,7 @@ import (
 	"os"
 	"reflect"
 
-	"runtime/debug"
+	//"runtime/debug"
 	"strings"
 )
 
@@ -35,7 +35,7 @@ type Initializer interface {
 
 // New instantiates a ready-to-use Cli.
 func New(handlers ...Handler) *Cli {
-	if debug {
+	if debug_level > 0 {
 		logrus.Debugf("Executing cli/cli.go : New(%s)", handlers)
 	}
 	// make the generic Cli object the first cli handler
@@ -53,7 +53,7 @@ func (err initErr) Error() string {
 }
 
 func (cli *Cli) command(args ...string) (func(...string) error, error) {
-	if debug {
+	if debug_level > 0 {
 		logrus.Debugf("Executing cli/cli.go : command(%s)", args)
 	}
 	for _, c := range cli.handlers {
@@ -89,7 +89,7 @@ func (cli *Cli) command(args ...string) (func(...string) error, error) {
 
 // Run executes the specified command.
 func (cli *Cli) Run(args ...string) error {
-	if debug {
+	if debug_level > 0 {
 		logrus.Debugf("Executing cli/cli.go : Run(%s)", args)
 	}
 	if len(args) > 1 {
@@ -166,7 +166,7 @@ func (cli *Cli) CmdHelp(args ...string) error {
 //
 // To see all available subcommands, run "docker --help".
 func Subcmd(name string, synopses []string, description string, exitOnError bool) *flag.FlagSet {
-	if debug {
+	if debug_level > 0 {
 		logrus.Debugf("Called Subcmd with name %s", name)
 	}
 	var errorHandling flag.ErrorHandling

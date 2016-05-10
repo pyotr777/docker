@@ -12,6 +12,8 @@ import (
 	"github.com/docker/go-connections/tlsconfig"
 )
 
+const debug_level int = 1
+
 // Client is the API client that performs all operations
 // against a docker server.
 type Client struct {

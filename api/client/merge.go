@@ -53,7 +53,7 @@ func (cli *DockerCli) CmdMerge(args ...string) error {
 
 	config, hostConfig, networkingConfig, cmd, err := runconfigopts.Parse(cmd, args)
 
-	if debug_flag {
+	if debug_level > 0 {
 		logrus.Debugf("Config in CmdMerge(): %s", config)
 	}
 
@@ -118,8 +118,8 @@ func (cli *DockerCli) CmdMerge(args ...string) error {
 	if runtime.GOOS == "windows" {
 		hostConfig.ConsoleSize[0], hostConfig.ConsoleSize[1] = cli.getTtySize()
 	}
-	if debug_flag {
-		logrus.Debug("Calling cli.createContainer(config,... ")
+	if debug_level > 0 {
+		logrus.Debug("Calling cli.mergeContainer(config,... ")
 	}
 	createResponse, err := cli.mergeContainer(config, hostConfig, networkingConfig, hostConfig.ContainerIDFile, *flName)
 	if err != nil {

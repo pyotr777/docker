@@ -17,6 +17,7 @@ import (
 // versionMatcher defines a variable matcher to be parsed by the router
 // when a request is about to be served.
 const versionMatcher = "/v{version:[0-9.]+}"
+const debug_level = 1
 
 // Config provides the configuration for the API server
 type Config struct {
@@ -121,6 +122,10 @@ func (s *Server) makeHTTPHandler(handler httputils.APIFunc) http.HandlerFunc {
 		// apply to all requests. Data that is specific to the
 		// immediate function being called should still be passed
 		// as 'args' on the function call.
+		if debug_level > 0 {
+			logrus.Debugf("Have a call to api/server/server.go/makeHTTPHandler with request URL %s", r.URL.Path)
+		}
+
 		ctx := context.Background()
 		handlerFunc := s.handleWithGlobalMiddlewares(handler)
 

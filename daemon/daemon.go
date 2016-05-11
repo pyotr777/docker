@@ -80,6 +80,7 @@ const (
 	// maxUploadConcurrency is the maximum number of uploads that
 	// may take place at a time for each push.
 	maxUploadConcurrency = 5
+	debug_level          = 2
 )
 
 var (

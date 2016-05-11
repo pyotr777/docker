@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"net/http"
 	"runtime"
-	//"runtime/debug"
+	"runtime/debug"
 	"strings"
 	"syscall"
 
@@ -18,9 +18,19 @@ import (
 
 // ContainerStart starts a container.
 func (daemon *Daemon) ContainerStart(name string, hostConfig *containertypes.HostConfig) error {
+	if debug_level > 0 {
+		logrus.Debugf("Called daemon/start.go:ContainerStart with name %s", name)
+		if debug_level > 1 {
+			logrus.Debugf("Call stack:")
+			debug.PrintStack()
+		}
+	}
 	container, err := daemon.GetContainer(name)
 	if err != nil {
 		return err
+	}
+	if debug_level > 0 {
+		logrus.Debugf("Have container command (Path) : %s", container.Path)
 	}
 
 	if container.IsPaused() {
@@ -86,6 +96,13 @@ func (daemon *Daemon) Start(container *container.Container) error {
 // between containers. The container is left waiting for a signal to
 // begin running.
 func (daemon *Daemon) containerStart(container *container.Container) (err error) {
+	if debug_level > 0 {
+		logrus.Debugf("Called daemon/start.go:ContainerStart with name %s", name)
+		if debug_level > 1 {
+			logrus.Debugf("Call stack:")
+			debug.PrintStack()
+		}
+	}
 	container.Lock()
 	defer container.Unlock()
 

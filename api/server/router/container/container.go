@@ -6,6 +6,8 @@ import (
 	"github.com/docker/docker/api/server/router"
 )
 
+const debug_level = 1
+
 // containerRouter is a router to talk with the container controller
 type containerRouter struct {
 	backend Backend
@@ -47,6 +49,7 @@ func (r *containerRouter) initRoutes() {
 		router.NewGetRoute("/containers/{name:.*}/archive", r.getContainersArchive),
 		// POST
 		router.NewPostRoute("/containers/create", r.postContainersCreate),
+		router.NewPostRoute("/containers/merge", r.postContainerMerge),
 		router.NewPostRoute("/containers/{name:.*}/kill", r.postContainersKill),
 		router.NewPostRoute("/containers/{name:.*}/pause", r.postContainersPause),
 		router.NewPostRoute("/containers/{name:.*}/unpause", r.postContainersUnpause),

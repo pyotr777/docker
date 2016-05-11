@@ -357,6 +357,42 @@ func (s *containerRouter) postContainersCreate(ctx context.Context, w http.Respo
 	return httputils.WriteJSON(w, http.StatusCreated, ccr)
 }
 
+// Create new conateiner from two images
+///////////////////////////////////////////////
+func (s *containerRouter) postContainerMerge(ctx context.Context, w http.ResponseWriter, r *http.Request, vars map[string]string) error {
+	if debug_level > 0 {
+		logrus.Debugf("Call to api/server/router/container/container_routes.go:postContainerMerge with URL %s", r.URL.Path)
+	}
+	if err := httputils.ParseForm(r); err != nil {
+		return err
+	}
+	if err := httputils.CheckForJSON(r); err != nil {
+		return err
+	}
+
+	name := r.Form.Get("name")
+
+	config, hostConfig, networkingConfig, err := s.decoder.DecodeConfig(r.Body)
+	if err != nil {
+		return err
+	}
+	version := httputils.VersionFromContext(ctx)
+	adjustCPUShares := version.LessThan("1.19")
+
+	ccr, err := s.backend.ContainerCreate(types.ContainerCreateConfig{
+		Name:             name,
+		Config:           config,
+		HostConfig:       hostConfig,
+		NetworkingConfig: networkingConfig,
+		AdjustCPUShares:  adjustCPUShares,
+	})
+	if err != nil {
+		return err
+	}
+
+	return httputils.WriteJSON(w, http.StatusCreated, ccr)
+}
+
 func (s *containerRouter) deleteContainers(ctx context.Context, w http.ResponseWriter, r *http.Request, vars map[string]string) error {
 	if err := httputils.ParseForm(r); err != nil {
 		return err

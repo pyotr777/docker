@@ -362,6 +362,8 @@ func (s *containerRouter) postContainersCreate(ctx context.Context, w http.Respo
 func (s *containerRouter) postContainerMerge(ctx context.Context, w http.ResponseWriter, r *http.Request, vars map[string]string) error {
 	if debug_level > 0 {
 		logrus.Debugf("Call to api/server/router/container/container_routes.go:postContainerMerge with URL %s", r.URL.Path)
+		logrus.Debugln("Parameters:")
+		logrus.Debugln(vars)
 	}
 	if err := httputils.ParseForm(r); err != nil {
 		return err

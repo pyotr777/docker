@@ -97,7 +97,7 @@ func (daemon *Daemon) Start(container *container.Container) error {
 // begin running.
 func (daemon *Daemon) containerStart(container *container.Container) (err error) {
 	if debug_level > 0 {
-		logrus.Debugf("Called daemon/start.go:ContainerStart with name %s", name)
+		logrus.Debugf("Called daemon/start.go:containerStart")
 		if debug_level > 1 {
 			logrus.Debugf("Call stack:")
 			debug.PrintStack()

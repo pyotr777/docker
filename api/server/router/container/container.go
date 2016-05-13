@@ -6,7 +6,7 @@ import (
 	"github.com/docker/docker/api/server/router"
 )
 
-const debug_level = 1
+const debug_level = 2
 
 // containerRouter is a router to talk with the container controller
 type containerRouter struct {

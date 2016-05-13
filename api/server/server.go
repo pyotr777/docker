@@ -2,16 +2,16 @@ package server
 
 import (
 	"crypto/tls"
-	"net"
-	"net/http"
-	"strings"
-
 	"github.com/Sirupsen/logrus"
 	"github.com/docker/docker/api/server/httputils"
 	"github.com/docker/docker/api/server/router"
 	"github.com/docker/docker/pkg/authorization"
 	"github.com/gorilla/mux"
 	"golang.org/x/net/context"
+	"net"
+	"net/http"
+	"runtime/debug"
+	"strings"
 )
 
 // versionMatcher defines a variable matcher to be parsed by the router
@@ -136,6 +136,10 @@ func (s *Server) makeHTTPHandler(handler httputils.APIFunc) http.HandlerFunc {
 
 		if err := handlerFunc(ctx, w, r, vars); err != nil {
 			logrus.Errorf("Handler for %s %s returned error: %v", r.Method, r.URL.Path, err)
+			if debug_level > 0 {
+				logrus.Debug("Call stack: ")
+				debug.PrintStack()
+			}
 			httputils.WriteError(w, err)
 		}
 	}

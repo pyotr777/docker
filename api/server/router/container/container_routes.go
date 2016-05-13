@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/http/httputil"
 	"strconv"
 	"strings"
 	"syscall"
@@ -364,6 +365,15 @@ func (s *containerRouter) postContainerMerge(ctx context.Context, w http.Respons
 		logrus.Debugf("Call to api/server/router/container/container_routes.go:postContainerMerge with URL %s", r.URL.Path)
 		logrus.Debugln("Parameters:")
 		logrus.Debugln(vars)
+		if debug_level > 1 {
+			logrus.Debug("HTTP request:")
+			dump, err := httputil.DumpRequest(r, true)
+			if err != nil {
+				http.Error(w, fmt.Sprint(err), http.StatusInternalServerError)
+				return err
+			}
+			logrus.Debugf("%q", dump)
+		}
 	}
 	if err := httputils.ParseForm(r); err != nil {
 		return err

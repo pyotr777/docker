@@ -24,6 +24,7 @@ import (
 
 type query struct {
 	Image string
+	Cmd   [2]string
 }
 
 func (s *containerRouter) getContainersJSON(ctx context.Context, w http.ResponseWriter, r *http.Request, vars map[string]string) error {
@@ -382,6 +383,7 @@ func (s *containerRouter) postContainerMerge(ctx context.Context, w http.Respons
 				return err
 			}
 			logrus.Debugf("Image (json): %s", q.Image)
+			logrus.Debugf("Cmd(json): %s, %s", q.Cmd[0], q.Cmd[1])
 			// Explore request contents
 			//r.ParseForm()
 			//logrus.Debugln("Form:")

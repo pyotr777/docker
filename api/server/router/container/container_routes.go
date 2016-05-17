@@ -383,19 +383,19 @@ func (s *containerRouter) postContainerMerge(ctx context.Context, w http.Respons
 			}
 			logrus.Debugf("Image (json): %s", q.Image)
 			// Explore request contents
-			r.ParseForm()
-			logrus.Debugln("Form:")
-			logrus.Debugln(r.Form)
-			logrus.Debugln("URL_long:")
-			logrus.Debugln(r.Form["url_long"])
-			logrus.Debugln("URL path")
-			logrus.Debugln(r.URL.Path)
-			logrus.Debugln("Image:")
-			logrus.Debugln(r.FormValue("Image"))
-			logrus.Debugf("Another Image test: %s", r.Form.Get("Image"))
-			for k, v := range r.Form {
-				logrus.Debugf("%s : %s", k, strings.Join(v, "_"))
-			}
+			//r.ParseForm()
+			//logrus.Debugln("Form:")
+			//logrus.Debugln(r.Form)
+			//logrus.Debugln("URL_long:")
+			//logrus.Debugln(r.Form["url_long"])
+			//logrus.Debugln("URL path")
+			//logrus.Debugln(r.URL.Path)
+			//logrus.Debugln("Image:")
+			//logrus.Debugln(r.FormValue("Image"))
+			//logrus.Debugf("Another Image test: %s", r.Form.Get("Image"))
+			//for k, v := range r.Form {
+			//	logrus.Debugf("%s : %s", k, strings.Join(v, "_"))
+			//}
 			logrus.Debug("HTTP request:")
 			dump, err := httputil.DumpRequest(r, true)
 			if err != nil {

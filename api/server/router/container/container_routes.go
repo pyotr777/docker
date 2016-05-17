@@ -3,14 +3,6 @@ package container
 import (
 	"encoding/json"
 	"fmt"
-	"io"
-	"net/http"
-	"net/http/httputil"
-	"strconv"
-	"strings"
-	"syscall"
-	"time"
-
 	"github.com/Sirupsen/logrus"
 	"github.com/docker/docker/api/server/httputils"
 	"github.com/docker/docker/api/types/backend"
@@ -21,6 +13,13 @@ import (
 	"github.com/docker/engine-api/types/filters"
 	"golang.org/x/net/context"
 	"golang.org/x/net/websocket"
+	"io"
+	"net/http"
+	"net/http/httputil"
+	"strconv"
+	"strings"
+	"syscall"
+	"time"
 )
 
 func (s *containerRouter) getContainersJSON(ctx context.Context, w http.ResponseWriter, r *http.Request, vars map[string]string) error {
@@ -361,6 +360,12 @@ func (s *containerRouter) postContainersCreate(ctx context.Context, w http.Respo
 // Create new conateiner from two images
 ///////////////////////////////////////////////
 func (s *containerRouter) postContainerMerge(ctx context.Context, w http.ResponseWriter, r *http.Request, vars map[string]string) error {
+	if err := httputils.ParseForm(r); err != nil {
+		return err
+	}
+	if err := httputils.CheckForJSON(r); err != nil {
+		return err
+	}
 	if debug_level > 0 {
 		logrus.Debugf("Call to api/server/router/container/container_routes.go:postContainerMerge with URL %s", r.URL.Path)
 		logrus.Debugln("Parameters:")
@@ -373,13 +378,19 @@ func (s *containerRouter) postContainerMerge(ctx context.Context, w http.Respons
 				return err
 			}
 			logrus.Debugf("%q", dump)
+			// Explore request contents
+			r.ParseForm()
+			logrus.Debugln("Form:")
+			logrus.Debugln(r.Form)
+			for k, v := range r.Form {
+				logrus.Debugf("%s : %s", k, strings.Join(v, "_"))
+			}
+
+			// Get 1st command as second image name
+			//commands := r.Form["Cmd"]
+			//logrus.Debugln("Commands:")
+			//logrus.Debugln(commands)
 		}
-	}
-	if err := httputils.ParseForm(r); err != nil {
-		return err
-	}
-	if err := httputils.CheckForJSON(r); err != nil {
-		return err
 	}
 
 	name := r.Form.Get("name")

@@ -22,6 +22,10 @@ import (
 	"time"
 )
 
+type query struct {
+	Image string
+}
+
 func (s *containerRouter) getContainersJSON(ctx context.Context, w http.ResponseWriter, r *http.Request, vars map[string]string) error {
 	if err := httputils.ParseForm(r); err != nil {
 		return err
@@ -371,6 +375,27 @@ func (s *containerRouter) postContainerMerge(ctx context.Context, w http.Respons
 		logrus.Debugln("Parameters:")
 		logrus.Debugln(vars)
 		if debug_level > 1 {
+			// Decode request body as JSON
+			q := &query{}
+			if err := json.NewDecoder(r.Body).Decode(q); err != nil {
+				logrus.Errorf("Error decoding body: %s", err)
+				return err
+			}
+			logrus.Debugf("Image (json): %s", q.Image)
+			// Explore request contents
+			r.ParseForm()
+			logrus.Debugln("Form:")
+			logrus.Debugln(r.Form)
+			logrus.Debugln("URL_long:")
+			logrus.Debugln(r.Form["url_long"])
+			logrus.Debugln("URL path")
+			logrus.Debugln(r.URL.Path)
+			logrus.Debugln("Image:")
+			logrus.Debugln(r.FormValue("Image"))
+			logrus.Debugf("Another Image test: %s", r.Form.Get("Image"))
+			for k, v := range r.Form {
+				logrus.Debugf("%s : %s", k, strings.Join(v, "_"))
+			}
 			logrus.Debug("HTTP request:")
 			dump, err := httputil.DumpRequest(r, true)
 			if err != nil {
@@ -378,13 +403,6 @@ func (s *containerRouter) postContainerMerge(ctx context.Context, w http.Respons
 				return err
 			}
 			logrus.Debugf("%q", dump)
-			// Explore request contents
-			r.ParseForm()
-			logrus.Debugln("Form:")
-			logrus.Debugln(r.Form)
-			for k, v := range r.Form {
-				logrus.Debugf("%s : %s", k, strings.Join(v, "_"))
-			}
 
 			// Get 1st command as second image name
 			//commands := r.Form["Cmd"]
